@@ -1,0 +1,31 @@
+
+.botao{
+    display: flex;
+    justify-content: end;
+    position: absolute;
+    width: 100%;
+    padding: 1rem;
+    margin-top: auto;
+}
+
+.adicionar{
+    width: 100px;
+    aspect-ratio: 1 / 1  ;
+    border-radius: 100%;
+    font-size: 5rem;
+    text-decoration: none;
+    cursor: pointer;
+    color: black;
+    background: linear-gradient(45deg, #d0e3ff, #ffe5ec);
+    border: none;
+    position: sticky;
+    text-align: center;
+}
+
+a:link,
+a:visited,
+a:hover,
+a:active {
+    text-decoration: none;
+    color:black ;
+}

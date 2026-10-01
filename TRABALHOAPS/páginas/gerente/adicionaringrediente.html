@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Ingredientes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="../../styles/menuEmTodos.css">
+    <link rel="stylesheet" href="../../styles/telaInicialCliente.css">
+    <link rel="stylesheet" href="../../styles/vendas.css">
+</head>
+<body>
+    <header>
+        <img src="../../imagens/logoDaDoceria.png" alt="Logo da doceria" class="logo">
+    </header>
+
+    <main>
+        <a href="estoque.html"><button class="btn-voltar"> ← </button></a>
+        <div class="container" style="max-width: 600px; margin: 20px auto; padding: 20px;">
+            <h1> Cadastro de Ingredientes</h1>
+            <p class="subtitle">Preencha os dados do produto para cadastrá-lo na doceria</p>
+
+            <!-- Área de mensagens -->
+            <div id="mensagem" class="mensagem" style="margin-bottom: 15px; padding: 10px; display: none;"></div>
+
+            <!-- Formulário -->
+            <form id="formProduto">
+                
+                <!-- NOME -->
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="nome">Nome do Ingrediente<span class="required">*</span></label>
+                    <input type="text" id="nome" name="nome" placeholder="Ex: Bolo de Chocolate Belga" required maxlength="200" style="width: 100%; padding: 8px;" />
+                </div>
+
+                <!-- DESCRIÇÃO -->
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="descricao">Descrição</label>
+                    <textarea id="descricao" name="descricao" placeholder="Descreva o produto..." maxlength="1000" style="width: 100%; padding: 8px;"></textarea>
+                </div>
+
+                <!-- TEMPO DE PREPARO E CATEGORIA -->
+                <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="tempoPreparo">Quantidade<span class="required">*</span></label>
+                        <input type="number" id="qtd" name="tempoPreparo" min="1" required style="width: 100%; padding: 8px;" />
+                    </div>
+                </div>
+
+                <!-- BOTÕES -->
+                <div class="btn-group" style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-secondary" onclick="limparFormulario()" style="padding: 10px 15px;">🗑️ Limpar</button>
+                    <button type="submit" class="btn-primary" id="btnEnviar" style="padding: 10px 15px; background: #ff4757; color: white; border: none; cursor: pointer;">💾 Cadastrar ingrediente</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = 'http://10.124.75.2:8080/api/v1';
+        const form = document.getElementById('formProduto');
+        const mensagem = document.getElementById('mensagem');
+        const btnEnviar = document.getElementById('btnEnviar');
+        const selectCategoria = document.getElementById('categoriaId');
+
+        function mostrarMensagem(texto, tipo = 'sucesso') {
+            mensagem.style.display = 'block';
+            mensagem.textContent = texto;
+            mensagem.style.backgroundColor = tipo === 'erro' ? '#ff6b6b' : '#1dd1a1';
+            mensagem.style.color = '#fff';
+
+            if (tipo !== 'erro') {
+                setTimeout(() => {
+                    mensagem.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        async function carregarCategorias() {
+            try {
+                const resposta = await fetch(`${API_URL}/categorias/ativas`);
+                if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+                const categorias = await resposta.json();
+                selectCategoria.innerHTML = '<option value="">Selecione uma categoria</option>';
+
+                categorias.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.id;
+                    option.textContent = `${cat.icone || '📦'} ${cat.nome}`;
+                    selectCategoria.appendChild(option);
+                });
+            } catch (erro) {
+                console.error('❌ Erro ao carregar categorias:', erro);
+                selectCategoria.innerHTML = '<option value="">❌ Erro ao carregar categorias</option>';
+                mostrarMensagem('Erro ao carregar categorias. Verifique se o back-end está ligado.', 'erro');
+            }
+        }
+
+        form.addEventListener('submit', async (evento) => {
+            evento.preventDefault();
+            btnEnviar.disabled = true;
+            btnEnviar.textContent = 'Cadastrando...';
+
+            try {
+                const dados = {
+                    nome: document.getElementById('nome').value.trim(),
+                    descricao: document.getElementById('descricao').value.trim() || null,
+                    preco: parseFloat(document.getElementById('preco').value),
+                    precoPromocional: document.getElementById('precoPromocional').value ? parseFloat(document.getElementById('precoPromocional').value) : null,
+                    tempoPreparo: parseInt(document.getElementById('tempoPreparo').value),
+                    categoriaId: parseInt(document.getElementById('categoriaId').value),
+                    ingredientes: document.getElementById('ingredientes').value.trim() || null,
+                    peso: document.getElementById('peso').value.trim() || null,
+                    imagem: document.getElementById('imagem').value.trim() || null,
+                    destaque: document.getElementById('destaque').checked,
+                    disponivel: document.getElementById('disponivel').checked
+                };
+
+                const resposta = await fetch(`${API_URL}/produtos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dados)
+                });
+
+                if (!resposta.ok) {
+                    const erroData = await resposta.json().catch(() => ({}));
+                    throw new Error(erroData.message || `Erro HTTP ${resposta.status}`);
+                }
+
+                const produtoCriado = await resposta.json();
+                mostrarMensagem(`✅ Produto "${produtoCriado.nome}" cadastrado com sucesso!`, 'sucesso');
+                limparFormulario();
+
+            } catch (erro) {
+                console.error('❌ Erro:', erro);
+                mostrarMensagem(`❌ Erro ao cadastrar: ${erro.message}`, 'erro');
+            } finally {
+                btnEnviar.disabled = false;
+                btnEnviar.textContent = '💾 Cadastrar Produto';
+            }
+        });
+
+        function limparFormulario() {
+            form.reset();
+            document.getElementById('disponivel').checked = true;
+            document.getElementById('destaque').checked = false;
+            document.getElementById('nome').focus();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarCategorias();
+        });
+    </script>
+</body>
+</html>

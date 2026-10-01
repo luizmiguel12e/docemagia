@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Produtos</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="../../styles/menuEmTodos.css">
+    <link rel="stylesheet" href="../../styles/telaInicialCliente.css">
+    <link rel="stylesheet" href="../../styles/vendas.css">
+    <style>
+        .mensagem { padding: 10px; margin: 15px 0; display: none; border-radius: 4px; }
+        .mensagem.sucesso { background: #1dd1a1; color: #fff; display: block; }
+        .mensagem.erro { background: #ff6b6b; color: #fff; display: block; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+        .badge-sim { background: #d4edda; color: #155724; }
+        .badge-nao { background: #f8d7da; color: #721c24; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal.aberto { display: flex; }
+        .modal-content { background: #fff; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="../../imagens/logoDaDoceria.png" alt="Logo da doceria" class="logo">
+        <div>
+            <button class="btn-pesquisa">Buscar</button>
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+    </header>
+
+    <main>
+        <nav>
+            <ul>
+                <li><a href="tabela.html" class="active">Tabela</a></li>
+                <li><a href="estoque.html">Estoque</a></li>
+            </ul>
+        </nav>
+
+        <div style="padding: 20px;">
+            <h1>📋 Lista de Produtos</h1>
+            
+            <div id="mensagem" class="mensagem"></div>
+            <div id="loading" style="padding: 20px; text-align: center;">Carregando produtos...</div>
+
+            <table id="tabelaProdutos" style="width: 100%; border-collapse: collapse; display: none; margin-top: 20px;">
+                <thead>
+                    <tr style="background: #f1f2f6; text-align: left;">
+                        <th style="padding: 10px;">ID</th>
+                        <th style="padding: 10px;">Nome</th>
+                        <th style="padding: 10px;">Preço</th>
+                        <th style="padding: 10px;">Preparo</th>
+                        <th style="padding: 10px;">Categoria</th>
+                        <th style="padding: 10px;">Destaque</th>
+                        <th style="padding: 10px;">Disponível</th>
+                        <th style="padding: 10px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabela"></tbody>
+            </table>
+        </div>
+        <div class="botao">
+            <a href="adicionarproduto.html" class="adicionar">+</a>
+        </div>
+
+    </main>
+
+    <div id="modalEdicao" class="modal">
+        <div class="modal-content">
+            <h2>✏️ Editar Produto</h2>
+            <form id="formEdicao" onsubmit="salvarEdicao(event)">
+                <input type="hidden" id="editId">
+                
+                <div style="margin-bottom: 10px;">
+                    <label>Nome:</label>
+                    <input type="text" id="editNome" required style="width: 100%; padding: 6px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Descrição:</label>
+                    <textarea id="editDescricao" style="width: 100%; padding: 6px;"></textarea>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Preço:</label>
+                    <input type="number" id="editPreco" step="0.01" required style="width: 100%; padding: 6px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Preço Promocional:</label>
+                    <input type="number" id="editPrecoPromocional" step="0.01" style="width: 100%; padding: 6px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Tempo de Preparo (min):</label>
+                    <input type="number" id="editTempoPreparo" required style="width: 100%; padding: 6px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Categoria:</label>
+                    <select id="editCategoriaId" required style="width: 100%; padding: 6px;">
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Ingredientes:</label>
+                    <input type="text" id="editIngredientes" style="width: 100%; padding: 6px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Peso:</label>
+                    <input type="text" id="editPeso" style="width: 100%; padding: 6px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Imagem:</label>
+                    <input type="text" id="editImagem" style="width: 100%; padding: 6px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label><input type="checkbox" id="editDestaque"> Destaque</label>
+                    <label style="margin-left: 15px;"><input type="checkbox" id="editDisponivel"> Disponível</label>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="button" onclick="fecharModal()" style="padding: 8px 12px;">Cancelar</button>
+                    <button type="submit" id="btnSalvar" style="padding: 8px 12px; background: #2ed573; color: white; border: none; cursor: pointer;">💾 Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://10.124.75.2:8080/api/v1';
+        const corpoTabela = document.getElementById('corpoTabela');
+        const tabela = document.getElementById('tabelaProdutos');
+        const loading = document.getElementById('loading');
+        const mensagem = document.getElementById('mensagem');
+        const modal = document.getElementById('modalEdicao');
+        const btnSalvar = document.getElementById('btnSalvar');
+
+        // ---------- Helpers ----------
+
+        function mostrarMensagem(texto, tipo = 'sucesso') {
+            mensagem.textContent = texto;
+            mensagem.className = `mensagem ${tipo}`;
+            setTimeout(() => {
+                mensagem.className = 'mensagem';
+            }, 4000);
+        }
+
+        function formatarPreco(valor) {
+            if (valor === null || valor === undefined || valor === '') return '-';
+            const num = Number(valor);
+            if (Number.isNaN(num)) return '-';
+            return `R$ ${num.toFixed(2).replace('.', ',')}`;
+        }
+
+        // Escapa caracteres perigosos para uso seguro em atributos HTML
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // ---------- Produtos ----------
+
+        async function carregarProdutos() {
+            loading.style.display = 'block';
+            tabela.style.display = 'none';
+
+            try {
+                const resposta = await fetch(`${API_URL}/produtos`);
+                if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+                const produtos = await resposta.json();
+
+                if (!Array.isArray(produtos) || produtos.length === 0) {
+                    loading.innerHTML = 'Nenhum produto cadastrado.';
+                    return;
+                }
+
+                let html = '';
+                produtos.forEach(p => {
+                    const nomeSeguro = escapeHtml(p.nome);
+                    const categoriaTxt = p.categoria
+                        ? `${escapeHtml(p.categoria.icone || '')} ${escapeHtml(p.categoria.nome || '')}`.trim()
+                        : '-';
+
+                    html += `
+                        <tr data-id="${p.id}" style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 10px;">${p.id}</td>
+                            <td style="padding: 10px;"><strong>${nomeSeguro}</strong></td>
+                            <td style="padding: 10px;">${formatarPreco(p.precoPromocional ?? p.preco)}</td>
+                            <td style="padding: 10px;">${p.tempoPreparo ?? '-'} min</td>
+                            <td style="padding: 10px;">${categoriaTxt}</td>
+                            <td style="padding: 10px;">
+                                <span class="badge ${p.destaque ? 'badge-sim' : 'badge-nao'}">
+                                    ${p.destaque ? 'Sim' : 'Não'}
+                                </span>
+                            </td>
+                            <td style="padding: 10px;">
+                                <span class="badge ${p.disponivel ? 'badge-sim' : 'badge-nao'}">
+                                    ${p.disponivel ? 'Sim' : 'Não'}
+                                </span>
+                            </td>
+                            <td style="padding: 10px;">
+                                <button class="btn btn-editar" onclick="abrirEdicao(${p.id})" style="padding: 5px 8px; cursor: pointer;">✏️</button>
+                                <button class="btn btn-apagar"
+                                        data-nome="${nomeSeguro}"
+                                        onclick="apagarProduto(${p.id}, this.dataset.nome)"
+                                        style="padding: 5px 8px; cursor: pointer; background: #ff4757; color: white; border: none;">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                corpoTabela.innerHTML = html;
+                tabela.style.display = 'table';
+                loading.style.display = 'none';
+
+            } catch (erro) {
+                console.error('❌ Erro:', erro);
+                loading.innerHTML = `❌ Erro ao carregar: ${erro.message}`;
+                mostrarMensagem('Erro ao carregar produtos', 'erro');
+            }
+        }
+
+        // ---------- Categorias ----------
+
+        async function carregarCategorias() {
+            try {
+                const resposta = await fetch(`${API_URL}/categorias/ativas`);
+                if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+                const categorias = await resposta.json();
+                const select = document.getElementById('editCategoriaId');
+                select.innerHTML = '<option value="">Selecione...</option>';
+
+                categorias.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.id;
+                    option.textContent = `${cat.icone || '📦'} ${cat.nome}`;
+                    select.appendChild(option);
+                });
+            } catch (erro) {
+                console.error('❌ Erro ao carregar categorias:', erro);
+                mostrarMensagem('Erro ao carregar categorias', 'erro');
+            }
+        }
+
+        // ---------- Edição ----------
+
+        async function abrirEdicao(id) {
+            try {
+                const resposta = await fetch(`${API_URL}/produtos/${id}`);
+                if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+                const produto = await resposta.json();
+
+                document.getElementById('editId').value = produto.id;
+                document.getElementById('editNome').value = produto.nome || '';
+                document.getElementById('editDescricao').value = produto.descricao || '';
+                document.getElementById('editPreco').value = produto.preco ?? '';
+                document.getElementById('editPrecoPromocional').value = produto.precoPromocional ?? '';
+                document.getElementById('editTempoPreparo').value = produto.tempoPreparo ?? '';
+                document.getElementById('editIngredientes').value = produto.ingredientes || '';
+                document.getElementById('editPeso').value = produto.peso || '';
+                document.getElementById('editImagem').value = produto.imagem || '';
+                document.getElementById('editDestaque').checked = !!produto.destaque;
+                document.getElementById('editDisponivel').checked = !!produto.disponivel;
+
+                // Categoria: garante que a option exista mesmo se não estiver entre as ativas
+                const selectCat = document.getElementById('editCategoriaId');
+                const catId = produto.categoria?.id;
+                if (catId) {
+                    const existe = [...selectCat.options].some(o => o.value === String(catId));
+                    if (!existe) {
+                        const opt = document.createElement('option');
+                        opt.value = catId;
+                        opt.textContent = `${produto.categoria.icone || '📦'} ${produto.categoria.nome || ''}`.trim();
+                        selectCat.appendChild(opt);
+                    }
+                    selectCat.value = String(catId);
+                } else {
+                    selectCat.value = '';
+                }
+
+                modal.classList.add('aberto');
+            } catch (erro) {
+                console.error('❌ Erro:', erro);
+                mostrarMensagem(`Erro ao carregar produto: ${erro.message}`, 'erro');
+            }
+        }
+
+        function fecharModal() {
+            modal.classList.remove('aberto');
+            document.getElementById('formEdicao').reset();
+        }
+
+        async function salvarEdicao(evento) {
+            evento.preventDefault();
+            const id = document.getElementById('editId').value;
+
+            const categoriaId = parseInt(document.getElementById('editCategoriaId').value, 10);
+            if (!categoriaId || Number.isNaN(categoriaId)) {
+                mostrarMensagem('Selecione uma categoria válida.', 'erro');
+                return;
+            }
+
+            const preco = parseFloat(document.getElementById('editPreco').value);
+            const precoPromoRaw = document.getElementById('editPrecoPromocional').value;
+
+            const dados = {
+                nome: document.getElementById('editNome').value.trim(),
+                descricao: document.getElementById('editDescricao').value.trim() || null,
+                preco: preco,
+                precoPromocional: precoPromoRaw ? parseFloat(precoPromoRaw) : null,
+                tempoPreparo: parseInt(document.getElementById('editTempoPreparo').value, 10),
+                categoriaId: categoriaId,
+                ingredientes: document.getElementById('editIngredientes').value.trim() || null,
+                peso: document.getElementById('editPeso').value.trim() || null,
+                imagem: document.getElementById('editImagem').value.trim() || null,   // ✅ corrigido
+                destaque: document.getElementById('editDestaque').checked,
+                disponivel: document.getElementById('editDisponivel').checked
+            };
+
+            btnSalvar.disabled = true;
+            btnSalvar.textContent = '⏳ Salvando...';
+
+            try {
+                const resposta = await fetch(`${API_URL}/produtos/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dados)
+                });
+
+                if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+                mostrarMensagem('✅ Produto atualizado com sucesso!', 'sucesso');
+                fecharModal();
+                carregarProdutos();
+            } catch (erro) {
+                console.error('❌ Erro:', erro);
+                mostrarMensagem(`Erro ao salvar: ${erro.message}`, 'erro');
+            } finally {
+                btnSalvar.disabled = false;
+                btnSalvar.textContent = '💾 Salvar Alterações';
+            }
+        }
+
+        // ---------- Exclusão ----------
+
+        async function apagarProduto(id, nome) {
+            if (!confirm(`Apagar o produto "${nome}"?`)) return;
+
+            try {
+                const resposta = await fetch(`${API_URL}/produtos/${id}`, { method: 'DELETE' });
+                if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+                mostrarMensagem(`✅ Produto "${nome}" apagado!`, 'sucesso');
+                carregarProdutos();
+            } catch (erro) {
+                console.error('❌ Erro:', erro);
+                mostrarMensagem(`Erro ao apagar: ${erro.message}`, 'erro');
+            }
+        }
+
+        // ---------- Eventos ----------
+
+        // Fechar modal clicando fora
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) fecharModal();
+        });
+
+        // Fechar modal com ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('aberto')) fecharModal();
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await carregarCategorias();
+            await carregarProdutos();
+        });
+    </script>
+</body>
+</html>

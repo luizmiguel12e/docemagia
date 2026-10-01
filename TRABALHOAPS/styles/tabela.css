@@ -1,0 +1,6 @@
+.tabela{
+    display: flex;
+    justify-content: center;
+}
+
+.tabela-produtos{ margin-top: 2rem;}
